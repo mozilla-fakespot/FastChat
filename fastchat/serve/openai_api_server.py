@@ -110,7 +110,7 @@ get_bearer_token = HTTPBearer(auto_error=False)
 
 
 async def check_api_key(
-    auth: Optional[HTTPAuthorizationCredentials] = Depends(get_bearer_token),
+        auth: Optional[HTTPAuthorizationCredentials] = Depends(get_bearer_token),
 ) -> str:
     if app_settings.api_keys:
         if auth is None or (token := auth.credentials) not in app_settings.api_keys:
@@ -157,7 +157,7 @@ async def check_model(request) -> Optional[JSONResponse]:
 
 async def check_length(request, prompt, max_tokens, worker_addr):
     if (
-        not isinstance(max_tokens, int) or max_tokens <= 0
+            not isinstance(max_tokens, int) or max_tokens <= 0
     ):  # model worker not support max_tokens=None
         max_tokens = 1024 * 1024
 
@@ -168,7 +168,7 @@ async def check_length(request, prompt, max_tokens, worker_addr):
         worker_addr + "/count_token",
         {"model": request.model, "prompt": prompt},
         "count",
-    )
+        )
     length = min(max_tokens, context_len - token_num)
 
     if length <= 0:
@@ -218,7 +218,7 @@ def check_requests(request) -> Optional[JSONResponse]:
             f"{request.top_k} is out of Range. Either set top_k to -1 or >=1.",
         )
     if request.stop is not None and (
-        not isinstance(request.stop, str) and not isinstance(request.stop, list)
+            not isinstance(request.stop, str) and not isinstance(request.stop, list)
     ):
         return create_error_response(
             ErrorCode.PARAM_OUT_OF_RANGE,
@@ -267,21 +267,21 @@ def _add_to_set(s, new_stop):
 
 
 async def get_gen_params(
-    model_name: str,
-    worker_addr: str,
-    messages: Union[str, List[Dict[str, str]]],
-    *,
-    temperature: float,
-    top_p: float,
-    top_k: Optional[int],
-    presence_penalty: Optional[float],
-    frequency_penalty: Optional[float],
-    max_tokens: Optional[int],
-    echo: Optional[bool],
-    logprobs: Optional[int] = None,
-    stop: Optional[Union[str, List[str]]],
-    best_of: Optional[int] = None,
-    use_beam_search: Optional[bool] = None,
+        model_name: str,
+        worker_addr: str,
+        messages: Union[str, List[Dict[str, str]]],
+        *,
+        temperature: float,
+        top_p: float,
+        top_k: Optional[int],
+        presence_penalty: Optional[float],
+        frequency_penalty: Optional[float],
+        max_tokens: Optional[int],
+        echo: Optional[bool],
+        logprobs: Optional[int] = None,
+        stop: Optional[Union[str, List[str]]],
+        best_of: Optional[int] = None,
+        use_beam_search: Optional[bool] = None,
 ) -> Dict[str, Any]:
     conv = await get_conv(model_name, worker_addr)
     conv = Conversation(
@@ -485,7 +485,7 @@ async def create_chat_completion(request: ChatCompletionRequest):
 
 
 async def chat_completion_stream_generator(
-    model_name: str, gen_params: Dict[str, Any], n: int, worker_addr: str
+        model_name: str, gen_params: Dict[str, Any], n: int, worker_addr: str
 ) -> Generator[str, Any, None]:
     """
     Event stream format:
@@ -503,12 +503,29 @@ async def chat_completion_stream_generator(
         chunk = ChatCompletionStreamResponse(
             id=id, choices=[choice_data], model=model_name
         )
-        yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+        # yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+        # Convert the chunk to a dictionary
+        chunk_dict = chunk.model_dump()
+
+        # Convert the dictionary to a JSON string
+        sorted_json = json.dumps(chunk_dict, sort_keys=True, ensure_ascii=False)
+
+        # Use the JSON string in your response
+        yield f"data: {sorted_json}\n\n"
 
         previous_text = ""
         async for content in generate_completion_stream(gen_params, worker_addr):
             if content["error_code"] != 0:
-                yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
+                # yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
+                # Convert the content to a dictionary
+                content_dict = content.model_dump()
+
+                # Convert the dictionary to a JSON string
+                sorted_json = json.dumps(
+                    content_dict, sort_keys=True, ensure_ascii=False
+                )
+
+                yield f"data: {sorted_json}\n\n"
                 yield "data: [DONE]\n\n"
                 return
             decoded_unicode = content["text"].replace("\ufffd", "")
@@ -533,10 +550,26 @@ async def chat_completion_stream_generator(
                 if content.get("finish_reason", None) is not None:
                     finish_stream_events.append(chunk)
                 continue
-            yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+            # yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+            # Convert the chunk to a dictionary
+            chunk_dict = chunk.dict(exclude_unset=True)
+
+            # Convert the dictionary to a JSON string
+            sorted_json = json.dumps(chunk_dict, ensure_ascii=False)
+
+            # Use the JSON string in your response
+            yield f"data: {sorted_json}\n\n"
     # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
     for finish_chunk in finish_stream_events:
-        yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
+        # yield f"data: {finish_chunk.json(exclude_none=True, ensure_ascii=False)}\n\n"
+        # Convert the finish_chunk to a dictionary
+        finish_chunk_dict = finish_chunk.dict(exclude_none=True)
+
+        # Convert the dictionary to a JSON string
+        sorted_json = json.dumps(finish_chunk_dict, ensure_ascii=False)
+
+        # Use the JSON string in your response
+        yield f"data: {sorted_json}\n\n"
     yield "data: [DONE]\n\n"
 
 
@@ -620,7 +653,7 @@ async def create_completion(request: CompletionRequest):
 
 
 async def generate_completion_stream_generator(
-    request: CompletionRequest, n: int, worker_addr: str
+        request: CompletionRequest, n: int, worker_addr: str
 ):
     model_name = request.model
     id = f"cmpl-{shortuuid.random()}"
@@ -644,7 +677,17 @@ async def generate_completion_stream_generator(
             )
             async for content in generate_completion_stream(gen_params, worker_addr):
                 if content["error_code"] != 0:
-                    yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
+                    # yield f"data: {json.dumps(content, ensure_ascii=False)}\n\n"
+                    # Convert the content to a dictionary
+                    content_dict = content.model_dump()
+
+                    # Convert the dictionary to a JSON string
+                    sorted_json = json.dumps(
+                        content_dict, sort_keys=True, ensure_ascii=False
+                    )
+
+                    # Use the JSON string in your response
+                    yield f"data: {sorted_json}\n\n"
                     yield "data: [DONE]\n\n"
                     return
                 decoded_unicode = content["text"].replace("\ufffd", "")
@@ -671,10 +714,26 @@ async def generate_completion_stream_generator(
                     if content.get("finish_reason", None) is not None:
                         finish_stream_events.append(chunk)
                     continue
-                yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+                # yield f"data: {chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+                # Convert the chunk to a dictionary
+                chunk_dict = chunk.model_dump()
+
+                # Convert the dictionary to a JSON string
+                sorted_json = json.dumps(chunk_dict, sort_keys=True, ensure_ascii=False)
+
+                # Use the JSON string in your response
+                yield f"data: {sorted_json}\n\n"
     # There is not "content" field in the last delta message, so exclude_none to exclude field "content".
     for finish_chunk in finish_stream_events:
-        yield f"data: {finish_chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+        # yield f"data: {finish_chunk.json(exclude_unset=True, ensure_ascii=False)}\n\n"
+        # Convert the finish_chunk to a dictionary
+        finish_chunk_dict = finish_chunk.model_dump()
+
+        # Convert the dictionary to a JSON string
+        sorted_json = json.dumps(finish_chunk_dict, sort_keys=True, ensure_ascii=False)
+
+        # Use the JSON string in your response
+        yield f"data: {sorted_json}\n\n"
     yield "data: [DONE]\n\n"
 
 
@@ -683,11 +742,11 @@ async def generate_completion_stream(payload: Dict[str, Any], worker_addr: str):
     async with httpx.AsyncClient() as client:
         delimiter = b"\0"
         async with client.stream(
-            "POST",
-            worker_addr + "/worker_generate_stream",
-            headers=headers,
-            json=payload,
-            timeout=WORKER_API_TIMEOUT,
+                "POST",
+                worker_addr + "/worker_generate_stream",
+                headers=headers,
+                json=payload,
+                timeout=WORKER_API_TIMEOUT,
         ) as response:
             # content = await response.aread()
             buffer = b""
@@ -778,13 +837,13 @@ async def count_tokens(request: APITokenCheckRequest):
             worker_addr + "/model_details",
             {"prompt": item.prompt, "model": item.model},
             "context_length",
-        )
+            )
 
         token_num = await fetch_remote(
             worker_addr + "/count_token",
             {"prompt": item.prompt, "model": item.model},
             "count",
-        )
+            )
 
         can_fit = True
         if token_num + item.max_tokens > context_len:

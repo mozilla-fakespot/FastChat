@@ -49,7 +49,7 @@ from fastchat.utils import get_gpu_memory
 # Check an environment variable to check if we should be sharing Peft model
 # weights.  When false we treat all Peft models as separate.
 peft_share_base_weights = (
-    os.environ.get("PEFT_SHARE_BASE_WEIGHTS", "false").lower() == "true"
+        os.environ.get("PEFT_SHARE_BASE_WEIGHTS", "false").lower() == "true"
 )
 
 ANTHROPIC_MODEL_LIST = (
@@ -155,7 +155,7 @@ def get_model_adapter(model_path: str) -> BaseModelAdapter:
 
 
 def raise_warning_for_incompatible_cpu_offloading_configuration(
-    device: str, load_8bit: bool, cpu_offloading: bool
+        device: str, load_8bit: bool, cpu_offloading: bool
 ):
     if cpu_offloading:
         if not load_8bit:
@@ -181,19 +181,19 @@ def raise_warning_for_incompatible_cpu_offloading_configuration(
 
 
 def load_model(
-    model_path: str,
-    device: str = "cuda",
-    num_gpus: int = 1,
-    max_gpu_memory: Optional[str] = None,
-    dtype: Optional[torch.dtype] = None,
-    load_8bit: bool = False,
-    cpu_offloading: bool = False,
-    gptq_config: Optional[GptqConfig] = None,
-    awq_config: Optional[AWQConfig] = None,
-    exllama_config: Optional[ExllamaConfig] = None,
-    xft_config: Optional[XftConfig] = None,
-    revision: str = "main",
-    debug: bool = False,
+        model_path: str,
+        device: str = "cuda",
+        num_gpus: int = 1,
+        max_gpu_memory: Optional[str] = None,
+        dtype: Optional[torch.dtype] = None,
+        load_8bit: bool = False,
+        cpu_offloading: bool = False,
+        gptq_config: Optional[GptqConfig] = None,
+        awq_config: Optional[AWQConfig] = None,
+        exllama_config: Optional[ExllamaConfig] = None,
+        xft_config: Optional[XftConfig] = None,
+        revision: str = "main",
+        debug: bool = False,
 ):
     """Load a model from Hugging Face."""
     import accelerate
@@ -268,7 +268,7 @@ def load_model(
 
         if "max_memory" in kwargs:
             kwargs["max_memory"]["cpu"] = (
-                str(math.floor(psutil.virtual_memory().available / 2**20)) + "Mib"
+                    str(math.floor(psutil.virtual_memory().available / 2**20)) + "Mib"
             )
         kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_8bit_fp32_cpu_offload=cpu_offloading
@@ -291,7 +291,7 @@ def load_model(
             return model, tokenizer
     elif awq_config and awq_config.wbits < 16:
         assert (
-            awq_config.wbits == 4
+                awq_config.wbits == 4
         ), "Currently we only support 4-bit inference for AWQ."
         model, tokenizer = load_awq_quantized(model_path, awq_config, device)
         if num_gpus != 1:
@@ -355,16 +355,16 @@ def load_model(
     model, tokenizer = adapter.load_model(model_path, kwargs)
 
     if (
-        device == "cpu"
-        and kwargs["torch_dtype"] is torch.bfloat16
-        and CPU_ISA is not None
+            device == "cpu"
+            and kwargs["torch_dtype"] is torch.bfloat16
+            and CPU_ISA is not None
     ):
         model = ipex.optimize(model, dtype=kwargs["torch_dtype"])
 
     if (device == "cuda" and num_gpus == 1 and not cpu_offloading) or device in (
-        "mps",
-        "xpu",
-        "npu",
+            "mps",
+            "xpu",
+            "npu",
     ):
         model.to(device)
 
@@ -418,13 +418,13 @@ def get_generate_stream_function(model: torch.nn.Module, model_path: str):
         # the right weights are available.
         @torch.inference_mode()
         def generate_stream_peft(
-            model,
-            tokenizer,
-            params: Dict,
-            device: str,
-            context_len: int,
-            stream_interval: int = 2,
-            judge_sent_end: bool = False,
+                model,
+                tokenizer,
+                params: Dict,
+                device: str,
+                context_len: int,
+                stream_interval: int = 2,
+                judge_sent_end: bool = False,
         ):
             model.set_adapter(model_path)
             base_model_type = str(type(model.base_model.model))
@@ -452,13 +452,13 @@ def get_generate_stream_function(model: torch.nn.Module, model_path: str):
             elif is_cllm:
                 generate_stream_function = generate_stream_cllm
             for x in generate_stream_function(
-                model,
-                tokenizer,
-                params,
-                device,
-                context_len,
-                stream_interval,
-                judge_sent_end,
+                    model,
+                    tokenizer,
+                    params,
+                    device,
+                    context_len,
+                    stream_interval,
+                    judge_sent_end,
             ):
                 yield x
 
@@ -664,6 +664,13 @@ class PeftModelAdapter:
         base_model, tokenizer = base_adapter.load_model(
             base_model_path, from_pretrained_kwargs
         )
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            trust_remote_code=True,  # Trust in remote code of tokenizer
+        )
+        base_model.resize_token_embeddings(
+            len(tokenizer)
+        )  # Resize new tokens from fine-tuning model
         model = PeftModel.from_pretrained(base_model, model_path)
         return model, tokenizer
 
@@ -1564,8 +1571,8 @@ class OpenOrcaAdapter(BaseModelAdapter):
 
     def match(self, model_path: str):
         return (
-            "mistral-7b-openorca" in model_path.lower()
-            or "openorca" in model_path.lower()
+                "mistral-7b-openorca" in model_path.lower()
+                or "openorca" in model_path.lower()
         )
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
@@ -1745,7 +1752,7 @@ class BGEAdapter(BaseModelAdapter):
             model_path, trust_remote_code=True, revision=revision
         )
         if hasattr(model.config, "max_position_embeddings") and hasattr(
-            tokenizer, "model_max_length"
+                tokenizer, "model_max_length"
         ):
             model.config.max_sequence_length = min(
                 model.config.max_position_embeddings, tokenizer.model_max_length
@@ -1776,7 +1783,7 @@ class E5Adapter(BaseModelAdapter):
             model_path, trust_remote_code=True, revision=revision
         )
         if hasattr(model.config, "max_position_embeddings") and hasattr(
-            tokenizer, "model_max_length"
+                tokenizer, "model_max_length"
         ):
             model.config.max_sequence_length = min(
                 model.config.max_position_embeddings, tokenizer.model_max_length
@@ -1916,7 +1923,7 @@ class OpenLLaMaOpenInstructAdapter(BaseModelAdapter):
 
     def match(self, model_path: str):
         return (
-            "open-llama" in model_path.lower() and "open-instruct" in model_path.lower()
+                "open-llama" in model_path.lower() and "open-instruct" in model_path.lower()
         )
 
     def load_model(self, model_path: str, from_pretrained_kwargs: dict):
